@@ -1,7 +1,6 @@
 name: CI Build
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
@@ -74,7 +73,19 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           flutter build ipa --release --no-codesign
-          mv build/ios/ipa/*.ipa build/ios/ipa/refuge-ios-unsigned.ipa
+
+          # Flutter may skip IPA export when code signing is disabled.
+          if ls build/ios/ipa/*.ipa >/dev/null 2>&1; then
+            mv build/ios/ipa/*.ipa build/ios/ipa/refuge-ios-unsigned.ipa
+          else
+            mkdir -p build/ios/ipa/Payload
+            cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app build/ios/ipa/Payload/
+            (
+              cd build/ios/ipa
+              zip -qry refuge-ios-unsigned.ipa Payload
+            )
+            rm -rf build/ios/ipa/Payload
+          fi
 
       - name: Upload Release Asset
         uses: actions/upload-artifact@v4
