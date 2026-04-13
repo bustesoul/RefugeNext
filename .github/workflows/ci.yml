@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
             output_path: build/app/outputs/flutter-apk/refuge-android.apk
@@ -17,6 +17,9 @@ jobs:
           - os: windows-latest
             output_path: build/windows/x64/runner/refuge-windows.zip
             asset_name: refuge-windows.zip
+          - os: macos-latest
+            output_path: build/ios/ipa/refuge-ios-unsigned.ipa
+            asset_name: refuge-ios-unsigned.ipa
 
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +62,13 @@ jobs:
           flutter config --enable-windows-desktop
           flutter build windows --release
           powershell Compress-Archive build/windows/x64/runner/Release build/windows/x64/runner/refuge-windows.zip
+
+
+      - name: Build iOS (Unsigned IPA)
+        if: matrix.os == 'macos-latest'
+        run: |
+          flutter build ipa --release --no-codesign
+          mv build/ios/ipa/*.ipa build/ios/ipa/refuge-ios-unsigned.ipa
 
       - name: Upload Release Asset
         uses: actions/upload-artifact@v4
