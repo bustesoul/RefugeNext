@@ -603,10 +603,7 @@ class MainDataModel extends ChangeNotifier {
   RefugeVersionProperty? get property => CirnoAuth.instance?.property;
 
   bool get isVIP {
-    if (property == null) {
-      return true;
-    }
-    return property!.isVip;
+    return true;
   }
 
   /// 刷新VIP订阅状态
