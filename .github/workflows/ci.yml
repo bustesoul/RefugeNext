@@ -8,11 +8,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
         include:
-          - os: ubuntu-latest
-            output_path: build/app/outputs/flutter-apk/refuge-android.apk
-            asset_name: refuge-android.apk
           - os: windows-latest
             output_path: build/windows/x64/runner/refuge-windows.zip
             asset_name: refuge-windows.zip
@@ -29,13 +26,6 @@ jobs:
         with:
           xcode-version: 'latest-stable'
 
-      - name: Setup Java
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -44,22 +34,6 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Build Android
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # 创建 key.properties 文件
-          echo "storeFile=keystore.jks" > android/key.properties
-          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-
-          # 解码并保存 keystore 文件
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-
-          # 构建发布版 APK
-          flutter build apk --release
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/refuge-android.apk
 
       - name: Build Windows
         if: matrix.os == 'windows-latest'

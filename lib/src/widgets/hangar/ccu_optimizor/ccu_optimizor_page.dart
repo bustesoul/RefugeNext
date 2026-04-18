@@ -25,6 +25,7 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
   String? _startProduct;
   String? _endProduct;
   List<UpgradeStep> _upgradePath = [];
+  bool _isCalculating = false;
 
   UpgradeSettings _upgradeSettings = UpgradeSettings();
 
@@ -38,11 +39,11 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
 
   List<String> _toShips = [];
 
-  Future<void> __calculateUpgradePath() async {
+  Future<List<UpgradeStep>> __calculateUpgradePath() async {
 
     if (_startProduct == null || _endProduct == null) {
       showToast(message: '请选择起始和目标舰船');
-      return;
+      return [];
     }
 
     final fromShip = allShips.firstWhere((element) => element.chineseName == _startProduct);
@@ -50,7 +51,7 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
 
     if (fromShip.getHighestSku() >= toShip.getHighestSku()) {
       showToast(message: '目标舰船价格必须高于起始舰船');
-      return;
+      return [];
     }
 
     List<int> bannedShips = [];
@@ -68,13 +69,13 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
 
     final hangarItems = Provider.of<MainDataModel>(context, listen: false).rawHangarItems;
     final result = await updateUpgradeSteps(_upgradeSettings, fromShip.id, toShip.id, hangarItems, bannedShips, mustHaveShips);
-
-    setState(() {
-      _upgradePath = result;
-    });
+    return result;
   }
 
   Future<void> _calculateUpgradePath() async {
+    if (_isCalculating) {
+      return;
+    }
 
     final isVip = Provider.of<MainDataModel>(context, listen: false).isVIP;
     if (!isVip) {
@@ -82,12 +83,31 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
       return;
     }
 
+    setState(() {
+      _isCalculating = true;
+    });
+
     try {
-      await __calculateUpgradePath();
+      final result = await __calculateUpgradePath().timeout(const Duration(seconds: 30));
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _upgradePath = result;
+      });
+      if (result.isEmpty && _startProduct != null && _endProduct != null) {
+        showToast(message: '未找到可用升级路线，请调整设置或更换舰船组合');
+      }
     } catch (e) {
       _blockedUpgrades = [];
       _mustHaveUpgrades = [];
       showToast(message: '升级路线计算失败QAQ$e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCalculating = false;
+        });
+      }
     }
 
   }
@@ -664,7 +684,7 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: _calculateUpgradePath,
+                    onPressed: _isCalculating ? null : _calculateUpgradePath,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -676,20 +696,40 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.auto_fix_high,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '计算最优升级路线',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        if (_isCalculating) ...[
+                          const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '计算中...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ] else ...[
+                          const Icon(
+                            Icons.auto_fix_high,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '计算最优升级路线',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1079,4 +1119,3 @@ class _ProductUpgradeWidgetState extends State<ProductUpgradeWidget> with Automa
   @override
   bool get wantKeepAlive => true;
 }
-
